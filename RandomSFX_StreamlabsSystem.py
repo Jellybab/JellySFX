@@ -201,25 +201,11 @@ def Execute(data):
 
 def TryToPlaySound(data):
     global jdata, volumes, sounds, names, reg, random
-    SFXnr = 0
-    if data.GetParamCount() > 1:
-        at = data.GetParam(1)
-        at = at.strip("@").lower()
-    else:
-        at = ""
-    if at in names:
-        x = names[at]
-        if len(x) == 1:
-            path = str(sounds.get(x[0], "Error"))
-            SFXnr = x[0]
-        else:
-            path = jdata.get("DirPath", "") + str(soundList[x])
-    else:
-        rnds = findRandomSong()
-        Parent.SendTwitchMessage(str(rnds))
-        path = jdata.get("DirPath", "value") + str(soundList[rnds])
-        Parent.SendTwitchMessage(str(path))
-        SFXnr = rnds
+
+    rnds = findRandomSong()
+    Parent.SendTwitchMessage(str(rnds))
+    path = jdata.get("DirPath", "value") + str(soundList[rnds])
+    Parent.SendTwitchMessage(str(path))
 
     if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
         result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
@@ -240,8 +226,8 @@ def TryToPlaySound(data):
             Parent.SendTwitchMessage(
                 "Warning: The path for this sound does not exist, check the spelling. Path: " + str(path))
 
-        Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
-        Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
+    Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
+    Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
 
 
 def findRandomSong():
