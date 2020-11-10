@@ -11,6 +11,8 @@ import codecs
 import os
 import re
 import random as _random
+import time
+
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
 import OBSRemoteParameters
@@ -28,7 +30,7 @@ SettingsFile = os.path.join(os.path.dirname(__file__), "settings.json")
 UIFile = os.path.join(os.path.dirname(__file__), "UI_Config.json")
 ReadMeFile = os.path.join(os.path.dirname(__file__), "ReadMe.txt")
 SoundData = os.path.join(os.path.dirname(__file__), "SoundData.json")
-soundsPlayed = []
+soundsPlayed = {}
 reg = None
 try:
     with codecs.open(SettingsFile, encoding="utf-8-sig", mode="r") as f:
@@ -40,7 +42,6 @@ try:
         soundList = json.load(f, encoding="utf-8")
 except:
     soundList = []
-
 
 # ---------------------------
 #   [Required] Script Information
@@ -94,10 +95,10 @@ def ReloadSettings(jsondata):
     jdata = {"ScriptName": jsettings.get("ScriptName", "SFX Randomizer"),
              "SFXCommand": jsettings.get("SFXCommand", "!SFXcommand"),
              "SFXCD": jsettings.get("SFXCD", 0),
+             "SoundCD": jsettings.get("SoundCD", 0),
              "SFXUserCD": jsettings.get("SFXUserCD", 0),
              "Permission": jsettings.get("Permission", "Everyone"),
-             "DirPath": jsettings.get("DirPath", "PATH"),
-             "SoundFiles": jsettings.get("SoundsFiles", "")}
+             "DirPath": jsettings.get("DirPath", "PATH")}
 
     data = {
         "output_file": "settings.json",
@@ -123,6 +124,16 @@ def ReloadSettings(jsondata):
             "max": 60,
             "ticks": 1,
             "tooltip": "Time until the command can be used again",
+            "group": "2. Command"
+        },
+        "SoundCD": {
+            "type": "slider",
+            "label": "sound cooldown (mins)",
+            "value": jsettings.get("SoundCD", 0),
+            "min": 0,
+            "max": 60,
+            "ticks": 1,
+            "tooltip": "Time until the sound can play again",
             "group": "2. Command"
         },
         "SFXUserCD": {
@@ -200,12 +211,18 @@ def Execute(data):
 
 
 def TryToPlaySound(data):
-    global jdata, volumes, sounds, names, reg, random
+    global jdata
 
     rnds = findRandomSong()
-    Parent.SendTwitchMessage(str(rnds))
+    now = time.localtime()
+    shortnow = (now.tm_mday * 60*60*24)\
+               +(now.tm_hour * 60 * 60)\
+               +(now.tm_min * 60)\
+               +(now.tm_sec)
+    soundsPlayed[str(rnds)] = shortnow
+
+
     path = jdata.get("DirPath", "value") + str(soundList[rnds])
-    Parent.SendTwitchMessage(str(path))
 
     if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
         result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
@@ -231,7 +248,21 @@ def TryToPlaySound(data):
 
 
 def findRandomSong():
-    rnds = random.randint(0, len(soundList) - 1)
+    notFoundSong = True
+
+    while(notFoundSong):
+        rnds = random.randint(0, len(soundList) - 1)
+
+        if len(soundsPlayed) < len(soundList):
+            if checkSongPlayed(rnds):
+                notFoundSong = False
+        else:
+            if checkSongPlayed(rnds):
+                notFoundSong = False
+            else:
+                Parent.SendTwitchMessage("All Songs on cooldown")
+                rnds = 0
+                notFoundSong = False
     return rnds
 
 
@@ -248,3 +279,23 @@ def loadSongs(path):
             if filename.endswith('.mp3'):
                 songs.append(filename)
     return songs
+
+
+def checkSongPlayed(rnds):
+    if str(rnds) in soundsPlayed:
+        songTime = soundsPlayed.get(str(rnds))
+        nowTime = time.localtime()
+        shortnow = \
+            (nowTime.tm_mday * 60*60*24)\
+               +(nowTime.tm_hour * 60 * 60)\
+               +(nowTime.tm_min * 60)\
+               +(nowTime.tm_sec)
+        songTimeInt = int(songTime)
+        soundCoolDown = int(jdata.get("SoundCD")) * 60
+        shortnow = int(shortnow)
+        if (songTimeInt + soundCoolDown) < shortnow:
+            soundsPlayed.pop(str(rnds))
+            return True
+        else:
+            return False
+    return True
