@@ -46,11 +46,11 @@ except:
 # ---------------------------
 #   [Required] Script Information
 # ---------------------------
-ScriptName = jdata.get("ScriptName", "SFX Randomizer")
+ScriptName = jdata.get("ScriptName", "Random Sound Effect")
 Website = "https://www.streamlabs.com"
 Description = "SFX Randomizer, enables you to set up one command that can randomize between set sounds"
 Creator = "Jellybab"
-Version = "0.0.1"
+Version = "1.0.0"
 
 
 # ---------------------------
@@ -182,7 +182,7 @@ def ReloadSettings(jsondata):
         json.dump(soundList, data_file3, sort_keys=True, indent=4)
 
 
-    ScriptName = jsettings.get("ScriptName", "SFX Randomizer")
+    ScriptName = jsettings.get("ScriptName", "Random Sound Effect")
     Parent.SendTwitchMessage("Loading done")
     return
 
