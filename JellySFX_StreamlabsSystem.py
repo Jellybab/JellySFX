@@ -5,6 +5,7 @@
 #   Import Libraries
 # ---------------------------
 import sys
+
 import clr
 import json
 import codecs
@@ -14,11 +15,9 @@ import random as _random
 import time
 
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
-import OBSRemoteParameters
-
 clr.AddReference("IronPython.SQLite.dll")
 clr.AddReference("IronPython.Modules.dll")
+
 
 # ---------------------------
 #   Define Global Variables
@@ -32,6 +31,8 @@ ReadMeFile = os.path.join(os.path.dirname(__file__), "ReadMe.txt")
 SoundData = os.path.join(os.path.dirname(__file__), "SoundData.json")
 soundsPlayed = {}
 reg = None
+mixed = None
+
 try:
     with codecs.open(SettingsFile, encoding="utf-8-sig", mode="r") as f:
         jdata = json.load(f, encoding="utf-8")
@@ -46,11 +47,11 @@ except:
 # ---------------------------
 #   [Required] Script Information
 # ---------------------------
-ScriptName = jdata.get("ScriptName", "Random Sound Effect")
+ScriptName = jdata.get("ScriptName", "JellySFX")
 Website = "https://www.streamlabs.com"
-Description = "SFX Randomizer, enables you to set up one command that can randomize between set sounds"
+Description = "plays random sound effects "
 Creator = "Jellybab"
-Version = "1.0.0"
+Version = "1.1.0"
 
 
 # ---------------------------
@@ -91,12 +92,13 @@ def ReloadSettings(jsondata):
     names = {}
     reg = re.compile(r"\$Name\([\ ]*\"(?P<name>[^\"\']+)\"[\ ]*\)")
 
-    Parent.Log("Test", str(jsettings))
-    jdata = {"ScriptName": jsettings.get("ScriptName", "SFX Randomizer"),
-             "SFXCommand": jsettings.get("SFXCommand", "!SFXcommand"),
+
+    jdata = {"ScriptName": jsettings.get("ScriptName", "JellySFX"),
+             "SFXCommand": jsettings.get("SFX", "!SFX"),
              "SFXCD": jsettings.get("SFXCD", 0),
              "SoundCD": jsettings.get("SoundCD", 0),
              "SFXUserCD": jsettings.get("SFXUserCD", 0),
+             "Volume": jsettings.get("Volume", 100),
              "Permission": jsettings.get("Permission", "Everyone"),
              "DirPath": jsettings.get("DirPath", "PATH")}
 
@@ -104,7 +106,7 @@ def ReloadSettings(jsondata):
         "output_file": "settings.json",
         "ScriptName": {
             "type": "textbox",
-            "value": jsettings.get("ScriptName", "SFX Randomizer"),
+            "value": jsettings.get("ScriptName", "JellySFX"),
             "label": "Name of the Script/SFX",
             "tooltip": "The Name that will show in the scriptlist",
             "group": "1. This First, save settings and reload scripts after"
@@ -119,7 +121,7 @@ def ReloadSettings(jsondata):
         "SFXCD": {
             "type": "slider",
             "label": "Cooldown (min)",
-            "value": jsettings.get("SFXCD", 0),
+            "value": jsettings.get("SFXCD", 1),
             "min": 0,
             "max": 60,
             "ticks": 1,
@@ -129,7 +131,7 @@ def ReloadSettings(jsondata):
         "SoundCD": {
             "type": "slider",
             "label": "sound cooldown (mins)",
-            "value": jsettings.get("SoundCD", 0),
+            "value": jsettings.get("SoundCD", 1),
             "min": 0,
             "max": 60,
             "ticks": 1,
@@ -139,11 +141,21 @@ def ReloadSettings(jsondata):
         "SFXUserCD": {
             "type": "slider",
             "label": "User Cooldown (min)",
-            "value": jsettings.get("SFXUserCD", 0),
+            "value": jsettings.get("SFXUserCD", 3),
             "min": 0,
             "max": 60,
             "ticks": 1,
             "tooltip": "Time until the command can be used again by the user",
+            "group": "2. Command"
+        },
+        "Volume": {
+            "type": "slider",
+            "label": "global volume",
+            "value": jsettings.get("Volume", 100),
+            "min": 0,
+            "max": 100,
+            "ticks": 1,
+            "tooltip": "Global volume for SFX",
             "group": "2. Command"
         },
         "Permission": {
@@ -181,9 +193,8 @@ def ReloadSettings(jsondata):
     with codecs.open(SoundData, encoding="utf-8-sig", mode="w") as data_file3:
         json.dump(soundList, data_file3, sort_keys=True, indent=4)
 
-
-    ScriptName = jsettings.get("ScriptName", "Random Sound Effect")
-    Parent.SendTwitchMessage("Loading done")
+    ScriptName = jsettings.get("ScriptName", "JellySFX")
+    Parent.SendTwitchMessage("JellySFX Loaded")
     return
 
 
@@ -204,7 +215,7 @@ def Execute(data):
             TryToPlaySound(data)
         else:
             Parent.SendTwitchMessage(
-                data.UserName + " -> " + " You don't have permission to use " + jdata.get("A_SFXCommand",
+                data.UserName + " -> " + " You don't have permission to use " + jdata.get("SFXCommand",
                                                                                           "SFX Error") + " Required: " + str(
                     jdata.get("B_Permission", "Permission Error")))
     return
@@ -213,57 +224,63 @@ def Execute(data):
 def TryToPlaySound(data):
     global jdata
 
-    rnds = findRandomSong()
-    now = time.localtime()
-    shortnow = (now.tm_mday * 60*60*24)\
-               +(now.tm_hour * 60 * 60)\
-               +(now.tm_min * 60)\
-               +(now.tm_sec)
-    soundsPlayed[str(rnds)] = shortnow
+    if data.GetParam(1).lower() == "drink" and Parent.HasPermission(data.User, "Moderator", ""):
+        path = os.path.join(os.path.dirname(__file__), "lib\\" + data.User.lower() + ".mp3")
+        Parent.PlaySound(path, 100 / 100)
+        Parent.SendTwitchMessage("DRRRINNNKKKKK!!!!")
 
-
-    path = jdata.get("DirPath", "value") + str(soundList[rnds])
-
-    if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
-        result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
-        Parent.SendTwitchMessage(
-            data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for " + str(result) + " seconds.")
-
-    elif Parent.IsOnUserCooldown(ScriptName, jdata["ScriptName"], data.User):
-        result = Parent.GetUserCooldownDuration(ScriptName, jdata["ScriptName"], data.User)
-        Parent.SendTwitchMessage(
-            data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for you for" + str(result) + " seconds.")
-
+    elif data.GetParam(1).lower() == "o" and Parent.HasPermission(data.User, "Moderator", ""):
+        path = os.path.join(os.path.dirname(__file__), "lib\\" + "o.mp3")
+        Parent.PlaySound(path, 100 / 100)
     else:
+        sound = findRandomSong()
+        now = time.localtime()
+        shortnow = (now.tm_mday * 60 * 60 * 24) \
+                   + (now.tm_hour * 60 * 60) \
+                   + (now.tm_min * 60) \
+                   + (now.tm_sec)
+        soundsPlayed[str(sound)] = shortnow
 
-        if os.path.exists(path):
-            playedSound = Parent.PlaySound(path, 100 / 100)
-
-        else:
+        if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
+            result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
             Parent.SendTwitchMessage(
-                "Warning: The path for this sound does not exist, check the spelling. Path: " + str(path))
+                data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for " + str(result) + " seconds.")
 
-    Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
-    Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
+        elif Parent.IsOnUserCooldown(ScriptName, jdata["ScriptName"], data.User):
+            result = Parent.GetUserCooldownDuration(ScriptName, jdata["ScriptName"], data.User)
+            Parent.SendTwitchMessage(
+                data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for you for" + str(
+                    result) + " seconds.")
+
+        elif sound > 0:
+            path = jdata.get("DirPath", "value") + str(soundList[sound])
+            if os.path.exists(path):
+                Parent.PlaySound(path, jdata["Volume"] / 100)
+                Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
+                Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
+
+            else:
+                Parent.SendTwitchMessage(
+                    "Warning: The path for this sound does not exist, check the spelling. Path: " + str(path))
 
 
 def findRandomSong():
     notFoundSong = True
 
-    while(notFoundSong):
-        rnds = random.randint(0, len(soundList) - 1)
+    while (notFoundSong):
+        sound = random.randint(0, len(soundList) - 1)
 
         if len(soundsPlayed) < len(soundList):
-            if checkSongPlayed(rnds):
+            if checkSongPlayed(sound):
                 notFoundSong = False
         else:
-            if checkSongPlayed(rnds):
+            if checkSongPlayed(sound):
                 notFoundSong = False
             else:
-                Parent.SendTwitchMessage("All Songs on cooldown")
-                rnds = 0
+                Parent.SendTwitchMessage("All sounds are on cooldown")
+                sound = -1
                 notFoundSong = False
-    return rnds
+    return sound
 
 
 def OpenReadMe():
@@ -281,20 +298,20 @@ def loadSongs(path):
     return songs
 
 
-def checkSongPlayed(rnds):
-    if str(rnds) in soundsPlayed:
-        songTime = soundsPlayed.get(str(rnds))
+def checkSongPlayed(sound):
+    if str(sound) in soundsPlayed:
+        songTime = soundsPlayed.get(str(sound))
         nowTime = time.localtime()
         shortnow = \
-            (nowTime.tm_mday * 60*60*24)\
-               +(nowTime.tm_hour * 60 * 60)\
-               +(nowTime.tm_min * 60)\
-               +(nowTime.tm_sec)
+            (nowTime.tm_mday * 60 * 60 * 24) \
+            + (nowTime.tm_hour * 60 * 60) \
+            + (nowTime.tm_min * 60) \
+            + (nowTime.tm_sec)
         songTimeInt = int(songTime)
         soundCoolDown = int(jdata.get("SoundCD")) * 60
         shortnow = int(shortnow)
         if (songTimeInt + soundCoolDown) < shortnow:
-            soundsPlayed.pop(str(rnds))
+            soundsPlayed.pop(str(sound))
             return True
         else:
             return False
