@@ -266,7 +266,7 @@ def TryToPlaySound(data):
 
 def findRandomSong():
     notFoundSong = True
-
+    sound = -1
     while (notFoundSong):
         sound = random.randint(0, len(soundList) - 1)
 
@@ -278,7 +278,6 @@ def findRandomSong():
                 notFoundSong = False
             else:
                 Parent.SendTwitchMessage("All sounds are on cooldown")
-                sound = -1
                 notFoundSong = False
     return sound
 
