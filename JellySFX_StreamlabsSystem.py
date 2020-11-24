@@ -224,14 +224,30 @@ def Execute(data):
 def TryToPlaySound(data):
     global jdata
 
-    if data.GetParam(1).lower() == "drink" and Parent.HasPermission(data.User, "Moderator", ""):
+    if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
+        result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
+        Parent.SendTwitchMessage(
+            data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for " + str(result) + " seconds.")
+
+    elif Parent.IsOnUserCooldown(ScriptName, jdata["ScriptName"], data.User):
+        result = Parent.GetUserCooldownDuration(ScriptName, jdata["ScriptName"], data.User)
+        Parent.SendTwitchMessage(
+            data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for you for" + str(
+                result) + " seconds.")
+        
+    elif data.GetParam(1).lower() == "drink" and Parent.HasPermission(data.User, "Moderator", ""):
         path = os.path.join(os.path.dirname(__file__), "lib\\" + data.User.lower() + ".mp3")
         Parent.PlaySound(path, 100 / 100)
         Parent.SendTwitchMessage("DRRRINNNKKKKK!!!!")
+        Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
+        Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
 
     elif data.GetParam(1).lower() == "o" and Parent.HasPermission(data.User, "Moderator", ""):
         path = os.path.join(os.path.dirname(__file__), "lib\\" + "o.mp3")
         Parent.PlaySound(path, 100 / 100)
+        Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
+        Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
+        
     else:
         sound = findRandomSong()
         now = time.localtime()
@@ -240,28 +256,15 @@ def TryToPlaySound(data):
                    + (now.tm_min * 60) \
                    + (now.tm_sec)
         soundsPlayed[str(sound)] = shortnow
+        path = jdata.get("DirPath", "value") + str(soundList[sound])
+        if os.path.exists(path):
+            Parent.PlaySound(path, jdata["Volume"] / 100)
+            Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
+            Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
 
-        if Parent.IsOnCooldown(ScriptName, jdata["ScriptName"]):
-            result = Parent.GetCooldownDuration(ScriptName, jdata["ScriptName"])
+        else:
             Parent.SendTwitchMessage(
-                data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for " + str(result) + " seconds.")
-
-        elif Parent.IsOnUserCooldown(ScriptName, jdata["ScriptName"], data.User):
-            result = Parent.GetUserCooldownDuration(ScriptName, jdata["ScriptName"], data.User)
-            Parent.SendTwitchMessage(
-                data.UserName + " -> " + jdata["ScriptName"] + " is on cooldown for you for" + str(
-                    result) + " seconds.")
-
-        elif sound > 0:
-            path = jdata.get("DirPath", "value") + str(soundList[sound])
-            if os.path.exists(path):
-                Parent.PlaySound(path, jdata["Volume"] / 100)
-                Parent.AddCooldown(ScriptName, jdata["ScriptName"], int(jdata["SFXCD"]) * 60)
-                Parent.AddUserCooldown(ScriptName, jdata["ScriptName"], data.User, int(jdata["SFXUserCD"]) * 60)
-
-            else:
-                Parent.SendTwitchMessage(
-                    "Warning: The path for this sound does not exist, check the spelling. Path: " + str(path))
+                "Warning: The path for this sound does not exist, check the spelling. Path: " + str(path))
 
 
 def findRandomSong():
